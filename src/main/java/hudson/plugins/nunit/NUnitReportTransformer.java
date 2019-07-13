@@ -1,9 +1,12 @@
 package hudson.plugins.nunit;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.Serializable;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -24,6 +27,7 @@ import org.apache.commons.lang.StringUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
@@ -70,7 +74,8 @@ public class NUnitReportTransformer implements TestReportTransformer, Serializab
         File junitTargetFile = new File(junitOutputPath, TEMP_JUNIT_FILE_STR);
         FileOutputStream fileOutputStream = new FileOutputStream(junitTargetFile);
         try {
-            InputStream is = new InvalidXmlInputStream(new BOMInputStream(nunitFileStream), '?');
+            // InputStream is = new InvalidXmlInputStream(new BOMInputStream(nunitFileStream), '?');
+            InputStream is = new BOMInputStream(nunitFileStream);
             nunitTransformer.transform(new StreamSource(is), new StreamResult(fileOutputStream));
         } finally {
             fileOutputStream.close();
@@ -105,8 +110,12 @@ public class NUnitReportTransformer implements TestReportTransformer, Serializab
     private void splitJUnitFile(File junitFile, File junitOutputPath) throws SAXException, IOException,
             TransformerException {
         transformCount++;
+        InputStream inputStream = new FileInputStream(junitFile);
+        Reader reader = new InputStreamReader(inputStream, "UTF-8");
+        InputSource is = new InputSource(reader);
+        is.setEncoding("UTF-8");
         try {
-            Document document = xmlDocumentBuilder.parse(junitFile);
+            Document document = xmlDocumentBuilder.parse(is);
 
             NodeList elementsByTagName = ((Element) document.getElementsByTagName("testsuites").item(0)).getElementsByTagName("testsuite");
             for (int i = 0; i < elementsByTagName.getLength(); i++) {
@@ -134,7 +143,9 @@ public class NUnitReportTransformer implements TestReportTransformer, Serializab
             if(!e.getMessage().startsWith("Premature end of file")) {
                 throw e;
             }
+        } finally {
+            // reader.close();
+            inputStream.close();
         }
-
     }
 }
